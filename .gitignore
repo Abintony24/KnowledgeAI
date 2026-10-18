@@ -2,5 +2,7 @@
 venv/
 .venv/
 __pycache__/
+*.py[cod]
 documents/
 storage/
+.DS_Store
