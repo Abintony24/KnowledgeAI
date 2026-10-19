@@ -1,26 +1,33 @@
 apiVersion: apps/v1
 kind: Deployment
-
 metadata:
-  name: knowledgeai-deployment
-
+  name: knowledgeai
+  namespace: knowledgeai
 spec:
-  replicas: 2
-
+  replicas: 1
   selector:
     matchLabels:
       app: knowledgeai
-
   template:
     metadata:
       labels:
         app: knowledgeai
-
     spec:
       containers:
         - name: knowledgeai
-          image: abintony/knowledgeai:11
-          imagePullPolicy: Always
-
+          image: abintony/knowledgeai:latest
           ports:
             - containerPort: 8000
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: knowledgeai-service
+  namespace: knowledgeai
+spec:
+  type: LoadBalancer
+  selector:
+    app: knowledgeai
+  ports:
+    - port: 80
+      targetPort: 8000
