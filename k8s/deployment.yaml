@@ -16,6 +16,7 @@ spec:
       containers:
         - name: knowledgeai
           image: abintony/knowledgeai:11
+          imagePullPolicy: Always
           ports:
             - containerPort: 8000
           env:
@@ -23,4 +24,25 @@ spec:
               valueFrom:
                 secretKeyRef:
                   name: knowledgeai-secrets
-                  key: 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
+                  key: GROQ_API_KEY
+          resources:
+            requests:
+              cpu: "250m"
+              memory: "512Mi"
+            limits:
+              cpu: "1000m"
+              memory: "2Gi"
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: knowledgeai-service
+  namespace: knowledgeai
+spec:
+  type: LoadBalancer
+  selector:
+    app: knowledgeai
+  ports:
+    - protocol: TCP
+      port: 80
+      targetPort: 8000
