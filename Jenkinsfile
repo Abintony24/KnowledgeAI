@@ -1,38 +1,38 @@
 pipeline {
     agent any
 
-    environment {
-        DOCKER_IMAGE  = "abintony/knowledgeai"
-        GIT_REPO_NAME = "KnowledgeAI"
-        GIT_USER_NAME = "Abintony24"
-    }
-
     options {
         timeout(time: 30, unit: 'MINUTES')
-        buildDiscarder(logRotator(numToKeepStr: '10'))
+    }
+
+    environment {
+        DOCKER_IMAGE = 'abintony/knowledgeai'
+        SONAR_PROJECT_KEY = 'KnowledgeAI'
+        GITHUB_REPO = 'https://github.com/Abintony24/KnowledgeAI.git'
     }
 
     stages {
 
         stage('Checkout') {
             steps {
-                sh 'echo "Checkout successful"'
-                sh 'ls -la'
+                checkout scm
             }
         }
 
         stage('Build and Test') {
             steps {
                 sh '''
-                    echo "Checking KnowledgeAI project files"
+                    echo "Checking project files..."
 
                     test -f Dockerfile
-                    test -f backend/requirements.txt
+                    test -f backend/requirements_gui.txt
+                    test -f backend/main.py
                     test -f k8s/deployment.yaml
                     test -f k8s/service.yaml
 
                     python3 --version
-                    echo "KnowledgeAI application is ready for packaging"
+
+                    echo "Project file checks passed."
                 '''
             }
         }
@@ -45,33 +45,38 @@ pipeline {
                     withSonarQubeEnv('KnowledgeAI') {
                         sh """
                             ${scannerHome}/bin/sonar-scanner \
-                            -Dsonar.projectKey=KnowledgeAI \
-                            -Dsonar.projectName='KnowledgeAI' \
-                            -Dsonar.sources=backend,frontend \
-                            -Dsonar.sourceEncoding=UTF-8
+                              -Dsonar.projectKey=${SONAR_PROJECT_KEY} \
+                              -Dsonar.projectName=KnowledgeAI \
+                              -Dsonar.sources=backend,frontend \
+                              -Dsonar.sourceEncoding=UTF-8
                         """
                     }
                 }
             }
         }
 
-        stage('Build and Push Docker Image') {
+        stage('Build Docker Image') {
+            steps {
+                sh '''
+                    docker build \
+                      -t ${DOCKER_IMAGE}:${BUILD_NUMBER} \
+                      -t ${DOCKER_IMAGE}:latest \
+                      .
+                '''
+            }
+        }
+
+        stage('Push Docker Image') {
             steps {
                 script {
-                    sh '''
-                        docker build \
-                            -t ${DOCKER_IMAGE}:${BUILD_NUMBER} \
-                            -t ${DOCKER_IMAGE}:latest .
-                    '''
-
-                    def dockerImage = docker.image("${DOCKER_IMAGE}:${BUILD_NUMBER}")
-
                     docker.withRegistry(
                         'https://index.docker.io/v1/',
                         'dockerhub-credentials'
                     ) {
-                        dockerImage.push()
-                        docker.image("${DOCKER_IMAGE}:latest").push()
+                        sh '''
+                            docker push ${DOCKER_IMAGE}:${BUILD_NUMBER}
+                            docker push ${DOCKER_IMAGE}:latest
+                        '''
                     }
                 }
             }
@@ -86,16 +91,30 @@ pipeline {
                     )
                 ]) {
                     sh '''
-                        git config user.email "abintony24@gmail.com"
-                        git config user.name "${GIT_USER_NAME}"
+                        set -eu
 
-                        sed -i "s|image: .*|image: ${DOCKER_IMAGE}:${BUILD_NUMBER}|g" k8s/deployment.yaml
+                        git config user.name "abintony24"
+                        git config user.email "abintony24@gmail.com"
+
+                        sed -i \
+                          "s|image: abintony/knowledgeai:.*|image: abintony/knowledgeai:${BUILD_NUMBER}|" \
+                          k8s/deployment.yaml
 
                         git add k8s/deployment.yaml
 
-                        git commit -m "Update KnowledgeAI image tag to ${BUILD_NUMBER} [skip ci]" || echo "No changes to commit"
+                        if git diff --cached --quiet; then
+                            echo "No deployment file changes."
+                            exit 0
+                        fi
 
-                        git push https://${GITHUB_TOKEN}@github.com/${GIT_USER_NAME}/${GIT_REPO_NAME}.git HEAD:main
+                        git commit -m "Update KnowledgeAI image to build ${BUILD_NUMBER}"
+
+                        AUTH=$(printf 'x-access-token:%s' "$GITHUB_TOKEN" | base64 -w 0)
+
+                        git -c http.extraheader="AUTHORIZATION: basic ${AUTH}" \
+                            push "$GITHUB_REPO" HEAD:main
+
+                        unset AUTH
                     '''
                 }
             }
@@ -103,16 +122,16 @@ pipeline {
     }
 
     post {
-        always {
-            cleanWs()
-        }
-
         success {
-            echo 'KnowledgeAI image pushed to Docker Hub and deployment YAML updated!'
+            echo 'KnowledgeAI pipeline completed successfully!'
         }
 
         failure {
-            echo 'Pipeline failed. Check the Jenkins Console Output for the failed stage.'
+            echo 'Pipeline failed. Check Console Output for the failed stage.'
+        }
+
+        always {
+            cleanWs()
         }
     }
 }
