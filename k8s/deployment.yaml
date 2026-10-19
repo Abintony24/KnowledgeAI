@@ -15,7 +15,7 @@ spec:
     spec:
       containers:
         - name: knowledgeai
-          image: abintony/knowledgeai:latest
+          image: abintony/knowledgeai:11
           ports:
             - containerPort: 8000
 ---
