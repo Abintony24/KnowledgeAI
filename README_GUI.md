@@ -1,81 +1,207 @@
-# RAG Document Q&A — GUI Version (Phase 2)
+# KnowledgeAI — Document Q&A Web Application
 
-A browser-based version of the RAG project: upload PDFs or text files through
-a web page, then ask questions and get answers grounded in what you uploaded.
+KnowledgeAI is an AI-powered document question-answering application built using Retrieval-Augmented Generation (RAG). Users can upload PDF or text documents, ask questions about their content, and receive context-aware answers with source references.
 
-## New files in this phase
+The application uses FastAPI for the backend, Sentence Transformers for generating embeddings, FAISS for similarity search, Groq for answer generation, and Amazon S3 for persistent storage.
 
-```
-main.py             -> FastAPI app: serves the page + /upload and /ask endpoints
-rag_core.py          -> The RAG engine (chunking, embeddings, FAISS, Groq)
-static/index.html    -> The GUI (upload box + chat interface)
-requirements_gui.txt -> Dependencies for this version (adds fastapi, uvicorn, pypdf)
-documents/            -> Uploaded files are saved here
-storage/              -> The FAISS index + chunk metadata are saved here (persists between runs)
-```
+## Features
 
-Your Phase 1 files (`app.py`, `ingest.py`, `rag.py`, `sample_docs.py`) still work
-as the terminal-only version — they're untouched. This phase adds a proper web
-app on top of the same ideas.
+* Upload PDF and text documents.
+* Extract text from uploaded documents.
+* Split extracted text into smaller chunks.
+* Generate embeddings using Sentence Transformers.
+* Retrieve relevant document chunks using FAISS.
+* Generate answers using the Groq API.
+* Display answers with source information.
+* Store the FAISS index and chunk data in Amazon S3.
+* Provide a browser-based user interface.
 
-## Setup
+## Architecture
 
-1. **Install the extra dependencies** (in the same rag-project folder, same
-   virtual environment as before):
-   ```bash
-   pip install -r requirements_gui.txt
-   ```
-
-2. **Make sure your `.env` file still has your Groq key:**
-   ```
-   GROQ_API_KEY=your_actual_key_here
-   ```
-
-3. **Start the server:**
-   ```bash
-   uvicorn main:app --reload
-   ```
-   You should see something like `Uvicorn running on http://127.0.0.1:8000`
-
-4. **Open your browser** to:
-   ```
-   http://127.0.0.1:8000
-   ```
-
-5. **Use it:**
-   - Click the upload box (or drag a file in) to add a PDF or `.txt` file
-   - Wait for the "chunks indexed" message to update
-   - Type a question in the box at the bottom and hit Enter or click Ask
-   - The answer appears, along with which document(s) it came from
-
-## How it fits the pipeline you already know
-
-```
-Browser (index.html)
-   │  upload file
-   ▼
-POST /upload  →  rag_core.py: extract text → chunk → embed → store in FAISS
-   │
-   │  ask question
-   ▼
-POST /ask     →  rag_core.py: embed question → search FAISS → send to Groq → return answer
+```text
+User
+  |
+  v
+Web Interface (HTML)
+  |
+  v
+FastAPI Backend
+  |
+  v
+RAG Engine (rag_core.py)
+  |
+  +----> Document Processing
+  |        |
+  |        v
+  |      Text Extraction and Chunking
+  |        |
+  |        v
+  |      Embedding Generation
+  |
+  +----> FAISS Vector Search
+  |
+  +----> Amazon S3
+  |        |
+  |        +---- FAISS Index
+  |        +---- Chunk Data
+  |
+  +----> Groq API
+           |
+           v
+      Generated Answer
+           |
+           v
+      Answer and Sources
 ```
 
-Nothing about the *logic* changed from before — you're just controlling it
-through a web page instead of typing commands in a terminal. This is exactly
-the "Create FastAPI API" phase from the original roadmap.
+## How It Works
 
-## What's next
+### 1. Document Upload
 
-- Dockerize this (`Dockerfile` for `main.py`)
-- Push to GitHub
-- Jenkins CI/CD → AWS ECR → Kubernetes/EKS → monitoring
+Users upload PDF or text documents through the web interface. The FastAPI backend receives the files and passes them to the RAG engine.
 
-## Troubleshooting
+### 2. Text Extraction and Chunking
 
-- **"Address already in use"** — a previous `uvicorn` process is still running.
-  Close that terminal or use `uvicorn main:app --reload --port 8001` instead.
-- **Upload succeeds but "0 chunks_added"** — the PDF might be scanned images
-  rather than real text (no OCR yet), or it's genuinely empty.
-- **Answers stop improving** — try re-uploading with fewer, cleaner documents
-  first to confirm the pipeline works, then scale up.
+The application extracts text from the uploaded documents and splits it into smaller chunks. This allows relevant sections to be retrieved without processing the entire document for every question.
+
+### 3. Embedding Generation
+
+The Sentence Transformers model `all-MiniLM-L6-v2` converts document chunks into numerical vectors called embeddings.
+
+### 4. FAISS Indexing and Storage
+
+FAISS indexes the embeddings to support similarity searches. The application stores the FAISS index and chunk data in Amazon S3 for persistent storage.
+
+### 5. Question Retrieval
+
+When a user asks a question, the application converts it into an embedding and searches FAISS for relevant document chunks.
+
+### 6. Answer Generation
+
+The application sends the user's question and retrieved context to the Groq API. The language model generates an answer based on the supplied information.
+
+### 7. Source References
+
+The application returns the answer along with source information associated with the retrieved document chunks.
+
+## Technologies Used
+
+* **Language:** Python
+* **Backend:** FastAPI
+* **Frontend:** HTML, CSS, JavaScript
+* **RAG:** Retrieval-Augmented Generation
+* **Embedding Model:** Sentence Transformers (`all-MiniLM-L6-v2`)
+* **Vector Search:** FAISS
+* **LLM API:** Groq API
+* **Document Processing:** PyPDF
+* **Cloud Storage:** Amazon S3
+* **AWS SDK:** Boto3
+
+## Project Structure
+
+```text
+KnowledgeAI/
+├── backend/
+│   ├── main.py
+│   ├── rag_core.py
+│   ├── rag.py
+│   ├── ingest.py
+│   ├── app.py
+│   ├── sample_docs.py
+│   ├── requirements.txt
+│   └── requirements_gui.txt
+├── frontend/
+│   └── index.html
+├── k8s/
+├── Dockerfile
+├── Jenkinsfile
+├── README.md
+└── README_GUI.md
+```
+
+## Prerequisites
+
+* Python 3.10 or later
+* A Groq API key
+* An AWS account with access to the configured S3 bucket
+* AWS credentials configured for the application
+
+## Setup and Configuration
+
+### 1. Clone the Repository
+
+```bash
+git clone https://github.com/Abintony24/KnowledgeAI.git
+cd KnowledgeAI
+```
+
+### 2. Create a Virtual Environment
+
+```bash
+python -m venv venv
+```
+
+Activate it on Windows:
+
+```bash
+venv\Scripts\activate
+```
+
+### 3. Install Dependencies
+
+Install the packages required by your application using the appropriate requirements file.
+
+```bash
+pip install -r backend/requirements_gui.txt
+```
+
+If your repository uses a different dependency file for the FastAPI application, use that file instead.
+
+### 4. Configure Environment Variables
+
+Configure the environment variables required by your application, including:
+
+```text
+GROQ_API_KEY=your_groq_api_key
+S3_BUCKET_NAME=your_s3_bucket_name
+AWS_REGION=your_aws_region
+```
+
+Use your actual configuration values. Do not commit API keys, passwords, or AWS credentials to GitHub.
+
+### 5. Configure AWS Access
+
+Configure AWS credentials with the permissions required to access the S3 bucket. On AWS, use an appropriately configured IAM role where possible.
+
+### 6. Run the Application
+
+From the repository root, start the FastAPI application using the appropriate Python module path for your project.
+
+For example:
+
+```bash
+uvicorn backend.main:app --reload
+```
+
+If `main.py` is run from inside the backend directory, the command may instead be:
+
+```bash
+uvicorn main:app --reload
+```
+
+Open the local application address configured by your FastAPI setup in a browser.
+
+## Storage
+
+Amazon S3 is used to persist the vector index and associated chunk data.
+
+The configured object keys are:
+
+* `storage/vector_store.index`
+* `storage/chunks.pkl`
+
+The application loads and saves these objects through its S3 integration.
+
+## Phase 2 Scope
+
+This phase extends the initial command-line RAG prototype into a web-based document question-answering application. It adds a browser interface, document uploads, a FastAPI backend, and persistent storage through Amazon S3.
