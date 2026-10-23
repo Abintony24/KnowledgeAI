@@ -1,4 +1,4 @@
-# KnowledgeAI — Deployment and DevOps
+# KnowledgeAI — Deployment and DevOps 
 
 This document describes the deployment architecture and DevOps workflow for KnowledgeAI, a RAG-based document question-answering application.
 
