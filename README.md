@@ -1,61 +1,121 @@
-# RAG Demo (Phase 1: local, no DevOps yet)
+# KnowledgeAI — RAG Document Q&A (Phase 1)
 
-This is a minimal, working Retrieval-Augmented Generation pipeline you run
-on your own machine. No PDFs yet — it uses sample text about
-Docker/Kubernetes/Jenkins so you can test the full flow first.
+A simple Retrieval-Augmented Generation (RAG) application that answers questions using sample documents. It uses Sentence Transformers to generate embeddings, FAISS to retrieve relevant text, and the Groq API to generate answers based on the retrieved context.
 
-## How it maps to the RAG pipeline
+This phase was developed to test the RAG workflow locally before building the web application.
 
+## How It Works
+
+1. Load sample documents.
+2. Split the documents into chunks.
+3. Generate embeddings for the chunks using Sentence Transformers.
+4. Store the embeddings in a FAISS index.
+5. Convert the user's question into an embedding.
+6. Retrieve the most relevant chunks from FAISS.
+7. Send the question and retrieved context to the Groq API.
+8. Return an answer based on the retrieved context.
+
+## Project Structure
+
+```text
+KnowledgeAI/
+├── backend/
+│   ├── app.py              # Command-line interface for asking questions
+│   ├── ingest.py           # Builds the local FAISS index from sample documents
+│   ├── rag.py              # Retrieves relevant chunks and generates answers
+│   ├── rag_core.py         # RAG engine used by the web application
+│   ├── main.py             # FastAPI application
+│   ├── sample_docs.py      # Sample documents for testing
+│   └── requirements.txt    # Python dependencies
+├── frontend/
+│   └── index.html          # Web application interface
+├── k8s/                    # Kubernetes configuration files
+├── Dockerfile
+├── Jenkinsfile
+├── README.md
+└── README_GUI.md
 ```
-sample_docs.py  -> the raw documents
-ingest.py       -> Load -> Chunk -> Embed -> Store in FAISS   (run once)
-rag.py          -> Retrieve -> Send to LLM -> Answer          (the core logic)
-app.py          -> CLI loop to ask questions                  (the demo)
-```
+
+## Technologies Used
+
+* Python
+* Retrieval-Augmented Generation (RAG)
+* Sentence Transformers (`all-MiniLM-L6-v2`)
+* FAISS
+* Groq API
+* Git and GitHub
+
+## Prerequisites
+
+* Python 3.10 or later
+* A Groq API key
+* Internet access to download the embedding model on its first run
 
 ## Setup
 
-1. **Create a virtual environment** (recommended):
-   ```bash
-   python -m venv venv
-   source venv/bin/activate      # on Windows: venv\Scripts\activate
-   ```
+### 1. Clone the repository
 
-2. **Install dependencies:**
-   ```bash
-   pip install -r requirements.txt
-   ```
+```bash
+git clone https://github.com/Abintony24/KnowledgeAI.git
+cd KnowledgeAI
+```
 
-3. **Get a free Groq API key:**
-   - Go to https://console.groq.com/keys
-   - Sign up (free) and create an API key
-   - Copy `.env.example` to `.env`, and paste your key in:
-     ```
-     GROQ_API_KEY=your_actual_key_here
-     ```
+### 2. Create and activate a virtual environment
 
-4. **Build the vector store** (run this once):
-   ```bash
-   python ingest.py
-   ```
-   This downloads a small free embedding model (~80MB, first run only),
-   embeds the sample documents, and saves a FAISS index to disk.
+```bash
+python -m venv venv
+```
 
-5. **Ask questions:**
-   ```bash
-   python app.py
-   ```
-   Try things like:
-   - "What is Docker?"
-   - "What's the difference between the control plane and worker nodes?"
-   - "What does Jenkins do?"
+On Windows:
 
-## What's next (once this works)
+```bash
+venv\Scripts\activate
+```
 
-- Swap `sample_docs.py` for real PDF loading (`pypdf` or `unstructured`)
-- Wrap `rag.py` in a FastAPI endpoint (`POST /ask`)
-- Then: Docker -> GitHub -> Jenkins CI/CD -> AWS ECR -> Kubernetes/EKS -> monitoring
+### 3. Install dependencies
 
-Don't move to deployment until `python app.py` reliably gives good answers
-on your own real documents — that's the actual "AI" part of the project,
-and everything after it is just packaging and shipping this same logic.
+```bash
+pip install -r backend/requirements.txt
+```
+
+### 4. Configure the Groq API key
+
+Create a `.env` file in the project root and add:
+
+```text
+GROQ_API_KEY=your_groq_api_key
+```
+
+Do not commit your `.env` file or expose your API key publicly.
+
+## Run the Application
+
+Run these commands from the repository root.
+
+### 1. Build the vector store
+
+```bash
+python backend/ingest.py
+```
+
+This processes the sample documents, generates embeddings, and saves the FAISS index and chunk data locally.
+
+### 2. Start the command-line application
+
+```bash
+python backend/app.py
+```
+
+Enter a question when prompted. The application retrieves relevant document chunks and uses Groq to generate an answer.
+
+## Example Questions
+
+* What is Docker?
+* What is the difference between the Kubernetes control plane and worker nodes?
+* What does Jenkins do?
+
+## Phase 1 Scope
+
+This phase focuses on testing the core RAG pipeline using predefined sample documents and local vector storage.
+
+The browser-based interface, PDF and text uploads, Amazon S3 persistence, and deployment workflow belong to later phases of the project.
